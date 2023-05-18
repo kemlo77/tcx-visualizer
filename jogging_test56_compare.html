@@ -1,0 +1,1042 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+
+<head>
+	<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+	<title>TCX-koll</title>
+	<script type="application/javascript">
+
+		//inspiration fr�n http://billmill.org/static/canvastutorial/
+
+		//global array d�r laddade rundor l�ggs
+		var super_array = new Array();
+		var WIDTH;
+		var HEIGHT;
+		var canvasMinX = 0;
+		var canvasMaxX = 0;
+		//positions in array
+		var timestamp_pos = 0;
+		var distance_pos = 1;
+		var heartrate_pos = 2;
+		var speed_pos = 3;
+		var latitude_pos = 4;
+		var longitude_pos = 5;
+		var altitude_pos = 6;
+		//global values for
+		var latfaktor = 0;
+		var longfaktor = 0;
+		var mest_lat = 0;
+		var minst_lat = 0;
+		var mest_long = 0;
+		var minst_long = 0;
+		var graf_hojd = 0;
+		var graf_bredd = 0;
+		var xmlDoc;
+
+
+		// detta exempel fr�n http://www.ibm.com/developerworks/xml/library/x-ffox3/
+		function loadAddresses(filnamnet) {
+			//xmlDoc = document.implementation.createDocument("", "", null);
+			//xmlDoc.onload = writeList;
+			//xmlDoc.open(filnamnet);
+			fetch(filnamnet)
+				.then(response => response.text())
+				.then(data => {
+					var parser = new DOMParser();
+					xmlDoc = parser.parseFromString(data, "application/xml");
+					//xmlDoc.onload = writeList;
+					writeList();
+					// Hantera XML-data här
+					console.log(xmlDoc);
+				})
+				.catch(error => {
+					console.log(error);
+				});
+
+		}
+
+		function initiera() {
+			//alert("god morgong");
+			var canvas = document.getElementById("canvas");
+			HEIGHT = canvas.offsetHeight;
+			WIDTH = canvas.offsetWidth;
+			//ctx = $('#canvas')[0].getContext("2d");
+			//alert("god morgon");
+			//WIDTH = $("#canvas").width();
+			//HEIGHT = $("#canvas").height();
+			//alert(HEIGHT);
+
+			//canvasMinX = $("#canvas").offset().left;
+			//canvasMaxX = canvasMinX + WIDTH;
+
+		}
+
+		//funktion som l�ser igenom xml-filen och sparar in v�rdena i tv� arrayer
+		function writeList() {
+			console.log("writeListe körs")
+			var lapv = xmlDoc.getElementsByTagName('Lap');
+			tpoint_vektor = [];
+			//datum_vektor=[];
+			//kollar igenom resten av posterna i xml-filen
+			totaltid = 0;
+			totalavst = 0;
+			//loop f�r laps
+			for (i = 0; i < lapv.length; i++) {
+
+				tid = lapv[i].getElementsByTagName('TotalTimeSeconds');
+				totaltid = totaltid + parseFloat(tid[0].firstChild.nodeValue);
+				avst = lapv[i].getElementsByTagName('DistanceMeters');
+				totalavst = totalavst + parseFloat(avst[0].firstChild.nodeValue);
+
+				tps = lapv[i].getElementsByTagName('Trackpoint');
+
+
+				//g�r igenom varje trackpoint i detta lap
+				for (j = 0; j < tps.length; j++) {
+					//Time
+					time_tag = tps[j].getElementsByTagName('Time');
+					tidpunkt = time_tag[0].firstChild.nodeValue;
+					var tempdatumiloop = new Date();
+					tempdatumiloop.setFullYear(tidpunkt.substring(0, 4), tidpunkt.substring(5, 7) - 1, tidpunkt.substring(8, 10));
+					tempdatumiloop.setHours(tidpunkt.substring(11, 13), tidpunkt.substring(14, 16), tidpunkt.substring(17, 19), 0);
+
+					//distanceMeters
+					DistanceMeters_tag = tps[j].getElementsByTagName('DistanceMeters');
+					if (DistanceMeters_tag[0]) {
+						dist_met = Math.round(10 * parseFloat(DistanceMeters_tag[0].firstChild.nodeValue)) / 10;
+					}
+					else {
+						dist_met = "x";
+					}
+
+					//HeartRateBpm
+					HeartRateBpm_tag = tps[j].getElementsByTagName('HeartRateBpm');
+					if (HeartRateBpm_tag[0]) {
+						value_tag = HeartRateBpm_tag[0].getElementsByTagName('Value');
+						heartr_bpm = parseFloat(value_tag[0].firstChild.nodeValue);
+					}
+					else {
+						heartr_bpm = "x";
+					}
+
+					//Speed
+					Extensions_tag = tps[j].getElementsByTagName('Extensions');
+					if (Extensions_tag[0]) {
+						TPX_tag = Extensions_tag[0].getElementsByTagName('TPX');
+						Speed_tag = TPX_tag[0].getElementsByTagName('Speed');
+						speed_v = Math.round((parseFloat(Speed_tag[0].firstChild.nodeValue)) * 10000) / 10000;
+					}
+					else {
+						speed_v = "x";
+					}
+
+					//Position
+					Position_tag = tps[j].getElementsByTagName('Position');
+					if (Position_tag[0]) {
+						lat_tag = Position_tag[0].getElementsByTagName('LatitudeDegrees');
+						lat_val = parseFloat(lat_tag[0].firstChild.nodeValue);
+						long_tag = Position_tag[0].getElementsByTagName('LongitudeDegrees');
+						long_val = parseFloat(long_tag[0].firstChild.nodeValue);
+					}
+					else {
+						lat_val = "x";
+						long_val = "x";
+					}
+
+					//AltitudeMeters
+					AltitudeMeters_tag = tps[j].getElementsByTagName('AltitudeMeters');
+					if (AltitudeMeters_tag[0]) {
+						altitude_v = parseFloat(AltitudeMeters_tag[0].firstChild.nodeValue);
+					}
+					else {
+						altitude_v = "x";
+					}
+
+					//sparar v�rden i en vektor
+					var temp_vektor = new Array();
+					temp_vektor.push(tempdatumiloop);
+					temp_vektor.push(dist_met);
+					temp_vektor.push(heartr_bpm);
+					temp_vektor.push(speed_v);
+					temp_vektor.push(lat_val);
+					temp_vektor.push(long_val);
+					temp_vektor.push(altitude_v);
+					tpoint_vektor.push(temp_vektor);
+				}
+
+
+
+			}
+			//alert("hejpa "+tpoint_vektor[0]);
+			//	alert("johannesson");
+			//alert(tpoint_vektor[1]);
+
+			totaltid = Math.round(totaltid);
+			tid_min = (totaltid - totaltid % 60) / 60;
+			tid_sek = totaltid % 60;
+			totalavst = Math.round(totalavst);
+			alert(tid_min + "m" + tid_sek + "s" + "\nstr�cka" + totalavst + "m");
+
+			var tempxvekt = new Array();
+			tempxvekt = avancerad_interpolera(tpoint_vektor);
+			//alert(tpoint_vektor[0]+"\n"+tempxvekt[0]);
+
+			super_array.push(tempxvekt);
+
+
+		}
+
+
+		//ber�knar v�rden som anv�nds vid plottning, sparas i globala variabler
+		function updateGlobalGraphValues(matrisen) {
+			//hittar max&min p� lat, long och h�jd i f�rsta rundan
+			extr_vekt = hitta_maxmin(matrisen[0], latitude_pos);
+			mest_lat = extr_vekt[0];
+			minst_lat = extr_vekt[1];
+			extr_vekt = hitta_maxmin(matrisen[0], longitude_pos);
+			mest_long = extr_vekt[0];
+			minst_long = extr_vekt[1];
+			extr_vekt = hitta_maxmin(matrisen[0], altitude_pos);
+			mest_hojd = extr_vekt[0];
+			minst_hojd = extr_vekt[1];
+			//kollar i de andra rundorna om det finns extremare v�rden f�r lat,long & h�jd
+			for (runda_extr = 1; runda_extr < matrisen.length; runda_extr++) {
+				//kollar om latituden �r h�gst eller minst i aktuell runda
+				extr_vekt = hitta_maxmin(matrisen[runda_extr], latitude_pos);
+				if (extr_vekt[0] > mest_lat) { mest_lat = extr_vekt[0] }
+				if (extr_vekt[1] < minst_lat) { minst_lat = extr_vekt[1] }
+				//kollar om longituden �r h�gst eller minst i aktuell runda
+				extr_vekt = hitta_maxmin(matrisen[runda_extr], longitude_pos);
+				if (extr_vekt[0] > mest_long) { mest_long = extr_vekt[0] }
+				if (extr_vekt[1] < minst_long) { minst_long = extr_vekt[1] }
+				//kollar om h�jden �r h�gst eller minst i aktuell runda
+				extr_vekt = hitta_maxmin(matrisen[runda_extr], altitude_pos);
+				if (extr_vekt[0] > mest_hojd) { mest_hojd = extr_vekt[0] }
+				if (extr_vekt[1] < minst_hojd) { minst_hojd = extr_vekt[1] }
+			}
+			//tar fram diff mellan h�gst och l�gst f�r lat,long&h�jd
+			diff_lat = mest_lat - minst_lat;
+			diff_long = mest_long - minst_long;
+			hojd_diff = mest_hojd - minst_hojd;
+
+			//bredd&h�jd p� omr�det som utg�rs av rundorna utr�knad som funktion av max&min f�r lat-long
+			koord_hojd = haversine(mest_lat, minst_long + diff_long / 2, minst_lat, minst_long + diff_long / 2);
+			koord_bredd = haversine(minst_lat + diff_lat / 2, minst_long, minst_lat + diff_lat / 2, mest_long);
+			//faktor f�r att s�tta r�tt f�rh�llande p� rundan/rundorna som visas
+			if (koord_hojd < koord_bredd) {
+				latfaktor = graf_hojd / diff_lat * koord_hojd / koord_bredd;
+				longfaktor = graf_bredd / diff_long * koord_bredd / koord_bredd;
+			}
+			else {
+				latfaktor = graf_hojd / diff_lat * koord_hojd / koord_hojd;
+				longfaktor = graf_bredd / diff_long * koord_bredd / koord_hojd;
+			}
+		}
+
+
+		function draw(offset_x, offset_y, given_graf_bredd, given_graf_hojd, matrisen) {
+
+			var canvas = document.getElementById("canvas");
+			if (canvas.getContext) {
+				var ctx = canvas.getContext("2d");
+				ctx.clearRect(0, 0, WIDTH, HEIGHT);
+				ctx.save();
+				ctx.translate(offset_x, offset_y);
+				//ctx.clearRect(0,0,graf_bredd,graf_hojd);
+
+				//hittar max&min p� lat, long och h�jd i f�rsta rundan
+				//sen ber�knas v�rden som beh�vs vid plottning
+				graf_bredd = given_graf_bredd;
+				graf_hojd = given_graf_hojd;
+				updateGlobalGraphValues(matrisen);
+
+
+				//ritar alla laddade rundor i matrisen
+				for (runda = 0; runda < matrisen.length; runda++) {
+
+
+					// ritar in rundan
+					ctx.strokeStyle = "rgba(96, 135, 85, 0.5)";
+					ctx.lineWidth = 1;
+					ctx.lineCap = "butt";
+					ctx.lineJoin = "round";
+					ctx.beginPath();
+					ctx.moveTo(transformLongToPixels(matrisen[runda][0][longitude_pos]), transformLatToPixels(matrisen[runda][0][latitude_pos]));
+					for (i = 1; i < matrisen[runda].length; i++) {
+						ctx.lineTo(transformLongToPixels(matrisen[runda][i][longitude_pos]), transformLatToPixels(matrisen[runda][i][latitude_pos]));
+					}
+					ctx.stroke();
+
+					//ritar de ortogonala strecken om det �r ikryssat
+					if (document.getElementById('hight').checked == true) {
+
+						var xkoord = new Array();
+						var ykoord = new Array();
+
+						//l�ser in koordinaterna i WGS84? till pixlar i det angivna f�nstret f�r rundan
+						for (p = 0; p < matrisen[runda].length; p++) {
+							//xkoord.push((matrisen[runda][p][longitude_pos]-minst_long)*longfaktor);
+							xkoord.push(transformLongToPixels(matrisen[runda][p][longitude_pos]));
+							//ykoord.push(graf_hojd-(matrisen[runda][p][latitude_pos]-minst_lat)*latfaktor);
+							ykoord.push(transformLatToPixels(matrisen[runda][p][latitude_pos]));
+
+						}
+
+						//fyller en array som f�r varje punkt i xkoord+ykoord inneh�ll en enhetsnormerad vektor som �r "vinkelr�t" mot den punkten p� banan
+						var vinkelratv = new Array();
+						vinkelratv = ratvinkvekt(xkoord, ykoord);
+
+						if (minst_hojd < 0) { minst_hojd = 0 }
+						for (g = 1; g < vinkelratv.length - 1; g++) {
+							//om det inte gick att r�kna ut r�tvinklig vektor s� kan det bero p� att punkten var identisk med f�reg�ende
+							if (vinkelratv[g][0] !== "x") {
+								ctx.beginPath();
+								ctx.moveTo(xkoord[g], ykoord[g]);
+								hojdipunkt = matrisen[runda][g][altitude_pos] - minst_hojd;
+								ctx.lineTo(xkoord[g] + vinkelratv[g][0] * hojdipunkt / hojd_diff * 40, ykoord[g] + vinkelratv[g][1] * hojdipunkt / hojd_diff * 40);
+								ctx.stroke();
+							}
+						}
+					}
+
+					//rita start plupp
+					ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
+					ctx.beginPath();
+					ctx.arc(transformLongToPixels(matrisen[runda][0][longitude_pos]), transformLatToPixels(matrisen[runda][0][latitude_pos]), 3, 0, Math.PI * 2, true);
+					ctx.closePath();
+					ctx.fill();
+					//ritar slut-plupp
+					ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+					ctx.beginPath();
+					ctx.arc(transformLongToPixels(matrisen[runda][matrisen[runda].length - 1][longitude_pos]), transformLatToPixels(matrisen[runda][matrisen[runda].length - 1][latitude_pos]), 3, 0, Math.PI * 2, true);
+					ctx.closePath();
+					ctx.fill();
+
+					//f�rs�ker rita kilometermarkering
+					kmMarkering = 1000;
+					drawKmMarkering = false;
+					ctx.fillStyle = "rgba(0, 0, 255, 0.3)";
+					for (b = 1; b < matrisen[runda].length; b++) {
+						//om man hittar en avst�nsmarkering som �r exakt likamed kmMarkering
+						thisKmMarkering = matrisen[runda][b][distance_pos];
+						if (thisKmMarkering == kmMarkering) {
+							//x_km=(matrisen[runda][b][longitude_pos]-minst_long)*longfaktor;
+							x_km = transformLongToPixels(matrisen[runda][b][longitude_pos]);
+							//y_km=graf_hojd-(matrisen[runda][b][latitude_pos]-minst_lat)*latfaktor;
+							//y_km=transformLatToPixels(matrisen[runda][b][latitude_pos]);
+							y_km = transformLatToPixels(matrisen[runda][b][latitude_pos]);
+							drawKmMarkering = true;
+						}
+						//annars f�r man interpolera mellan tv�
+						lastKmMarkering = matrisen[runda][b - 1][distance_pos];
+						if (lastKmMarkering < kmMarkering && thisKmMarkering > kmMarkering) {
+
+
+							this_x = matrisen[runda][b][longitude_pos];
+							last_x = matrisen[runda][b - 1][longitude_pos];
+							ny_x = simple_interpolera(lastKmMarkering, kmMarkering, thisKmMarkering, last_x, this_x);
+
+							this_y = matrisen[runda][b][latitude_pos];
+							last_y = matrisen[runda][b - 1][latitude_pos];
+							ny_y = simple_interpolera(lastKmMarkering, kmMarkering, thisKmMarkering, last_y, this_y);
+
+							x_km = transformLongToPixels(ny_x);
+							y_km = transformLatToPixels(ny_y);
+							drawKmMarkering = true;
+						}
+						if (drawKmMarkering) {
+							ctx.beginPath();
+							ctx.arc(1 + x_km, 1 + y_km, 3, 0, Math.PI * 2, true);
+							ctx.closePath();
+							ctx.fill();
+							// flyttar fram till n�sta km-markering
+							kmMarkering += 1000;
+							drawKmMarkering = false;
+						}
+					}
+				}
+				ctx.restore();
+			}
+		}
+
+
+
+		//interpolera
+		function simple_interpolera(interp_x0, interp_x1, interp_x2, interp_y0, interp_y2) {
+			var interp_kvot = (interp_x1 - interp_x0) / (interp_x2 - interp_x0);
+			var interp_y1 = interp_y0 + (interp_y2 - interp_y0) * interp_kvot;
+			return interp_y1
+		}
+
+
+		//transformerar fr�n latlong till pixel
+		function transformLatToPixels(latvalue) {
+			latInPixel = graf_hojd - (latvalue - minst_lat) * latfaktor;
+			return latInPixel;
+		}
+		function transformLongToPixels(longvalue) {
+			longInPixel = (longvalue - minst_long) * longfaktor;
+			return longInPixel;
+		}
+
+
+
+
+		function ratvinkvekt(xkoordinvekt, ykoordinvekt) {
+			//r�knar ut vektor som �r vinkelr�t mot aktuell punkt l�ngs rundan
+			//returnerar denna vektor
+			//om
+			var helkoorden = new Array();
+			for (q = 0; q < xkoordinvekt.length; q++) {
+				//f�ljande variabel best�mmer om vinkelr�ta vektorn ska peka inn�t eller ut�t
+				hogervarv = -1;
+				var koorden = new Array();
+				//r�knar ut vektorer mellan n�sta och f�reg�ende punkt
+				xdiff2 = xkoordinvekt[2 + q] - xkoordinvekt[1 + q];
+				ydiff2 = ykoordinvekt[2 + q] - ykoordinvekt[1 + q];
+				xdiff1 = xkoordinvekt[0 + q] - xkoordinvekt[1 + q];
+				ydiff1 = ykoordinvekt[0 + q] - ykoordinvekt[1 + q];
+
+				if (xdiff2 !== 0 && !isNaN(xdiff2)) {
+					if (xdiff1 !== 0 && !isNaN(xdiff1)) {
+						//ingen av diffarna �r noll
+						kvoten1 = Math.sqrt(Math.pow(xdiff1, 2) + Math.pow(ydiff1, 2));
+						kvoten2 = Math.sqrt(Math.pow(xdiff2, 2) + Math.pow(ydiff2, 2));
+						xrikt1 = -ydiff1 / kvoten1;
+						yrikt1 = xdiff1 / kvoten1;
+						xrikt2 = ydiff2 / kvoten2;
+						yrikt2 = -xdiff2 / kvoten2;
+						totkvot = Math.sqrt(Math.pow((xrikt1 + xrikt2), 2) + Math.pow((yrikt1 + yrikt2), 2));
+
+						koorden.push(hogervarv * (xrikt1 + xrikt2) / totkvot);
+						koorden.push(hogervarv * (yrikt1 + yrikt2) / totkvot);
+
+					}
+					else {
+						//diff2 �r inte noll
+						kvoten2 = Math.sqrt(Math.pow(xdiff2, 2) + Math.pow(ydiff2, 2));
+						xrikt2 = ydiff2 / kvoten2;
+						yrikt2 = -xdiff2 / kvoten2;
+						koorden.push(hogervarv * xrikt2);
+						koorden.push(hogervarv * yrikt2);
+
+					}
+
+				}
+				else {
+					if (xdiff1 !== 0 && !isNaN(xdiff1)) {
+						//diff1 �r inte noll
+						kvoten1 = Math.sqrt(Math.pow(xdiff1, 2) + Math.pow(ydiff1, 2));
+						xrikt1 = -ydiff1 / kvoten1;
+						yrikt1 = xdiff1 / kvoten1;
+						koorden.push(hogervarv * xrikt1);
+						koorden.push(hogervarv * yrikt1);
+
+					}
+					else {
+						//b�da diffarna �r noll
+						koorden.push("x");
+						koorden.push("x");
+
+					}
+				}
+				helkoorden.push(koorden);
+			}
+			return helkoorden;
+		}
+
+
+
+
+		/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
+		/*  Latitude/longitude spherical geodesy formulae & scripts (c) Chris Veness 2002-2009            */
+		/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
+		function haversine(lat1, lon1, lat2, lon2) {
+			//http://en.wikipedia.org/wiki/Haversine_formula
+			//kod fr�n: http://www.movable-type.co.uk/scripts/latlong.html
+
+			var R = 6371; // km
+			var dLat = (lat2 - lat1).toRad();
+			var dLon = (lon2 - lon1).toRad();
+
+			var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1.toRad()) * Math.cos(lat2.toRad()) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+			var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+			var d = R * c;
+
+			return d;
+		}
+		Number.prototype.toRad = function () {  // convert degrees to radians
+			return this * Math.PI / 180;
+		}
+
+
+
+
+		function avancerad_interpolera(interpvektor) {
+			//fyll i de f�rsta v�rdena genom att s�tta lika med efterf�ljande v�rden
+			//fyller i sista v�rdena genom att s�tta lika med f�reg�ende v�rden
+			//interpolerar f�r alla andra v�rden
+
+			antal_celler = interpvektor[0].length;
+			var temporvekt = new Array();
+
+			//kopierar interpvektor till temporvekt
+			for (a = 0; a < interpvektor.length; a++) {
+				var tempradvekt = new Array();
+				for (b = 0; b < antal_celler; b++) {
+					tempradvekt.push(interpvektor[a][b]);
+				}
+				temporvekt.push(tempradvekt);
+			}
+			antal_celler = temporvekt[0].length;
+
+			//fyller i de f�rsta v�rdena genom att s�tta lika med efterf�ljande v�rden
+			for (z = 0; z < antal_celler; z++) {
+				if (temporvekt[0][z] == "x") {
+					for (q = 1; q < temporvekt.length; q++) {
+						if (temporvekt[q][z] !== "x") {
+							temporvekt[0][z] = temporvekt[q][z];
+							break;
+						}
+					}
+				}
+			}
+			//fyller i sista v�rdena genom att s�tta lika med f�reg�ende v�rden
+			for (x = 0; x < antal_celler; x++) {
+				if (temporvekt[temporvekt.length - 1][x] == "x") {
+					for (y = (temporvekt.length - 2); y > 0; y--) {
+						if (temporvekt[y][x] !== "x") {
+							temporvekt[temporvekt.length - 1][x] = temporvekt[y][x];
+							break;
+
+						}
+					}
+				}
+			}
+			//interpolerar f�r alla andra v�rden (map tidsst�mpel som alltid finns)
+			for (w = 1; w < (temporvekt.length - 1); w++) {
+				for (t = 0; t < antal_celler; t++) {
+					if (temporvekt[w][t] == "x") {
+						//letar efter n�sta ifyllda v�rde
+						komihagc = 0;
+						for (c = w + 1; c < temporvekt.length - 1; c++) {
+							if (temporvekt[c][t] !== "x") {
+								komihagc = c;
+								break;
+							}
+						}
+						//langd1=sekunddiffaren(temporvekt[w][timestamp_pos],temporvekt[w-1][timestamp_pos]);
+						//langd2=sekunddiffaren(temporvekt[komihagc][timestamp_pos],temporvekt[w][timestamp_pos])
+						//interpoleringsber�kningen
+						//utf�rs om f�reg�ende v�rde inte var 'x'. Motsatsen intr�ffar n�r man inte har n�gra v�rden att interpolera med. exvis om man inte har v�rden f�r puls
+						if (temporvekt[w - 1][t] !== "x") {
+
+							//temporvekt[w][t]=temporvekt[w-1][t]+(temporvekt[komihagc][t]-temporvekt[w-1][t])/(langd1+langd2)*langd1;
+							temporvekt[w][t] = simple_interpolera(Date.parse(temporvekt[w - 1][timestamp_pos]), Date.parse(temporvekt[w][timestamp_pos]), Date.parse(temporvekt[komihagc][timestamp_pos]), temporvekt[w - 1][t], temporvekt[komihagc][t]);
+						}
+					}
+				}
+			}
+			return temporvekt;
+		}
+
+
+
+		//ANV�NDS INTE L�NGRE
+		//returnerar skillnaden mellan tv� datum i millisekunder
+		function sekunddiffaren(datum1, datum2) {
+			skillnaden = Date.parse(datum1) - Date.parse(datum2);
+			return skillnaden;
+		}
+
+
+
+		//kollar igenom en array av arrays i kolumn "kol_nr" efter st�rsta och minsta v�rde
+		function hitta_maxmin(vektor, kol_nr) {
+			storsta_val = vektor[0][kol_nr];
+			minsta_val = vektor[0][kol_nr];
+			for (k = 0; k < vektor.length; k++) {
+				aktuell_cell = vektor[k][kol_nr];
+				if (aktuell_cell > storsta_val) { storsta_val = aktuell_cell }
+				if (aktuell_cell < minsta_val) { minsta_val = aktuell_cell }
+			}
+			var temp_vektor = new Array();
+			temp_vektor[0] = storsta_val;
+			temp_vektor[1] = minsta_val;
+			return temp_vektor;
+		}
+
+
+
+
+
+		//en punkt C projiceras p� en linje mellan A och B
+		//d�r D �r projektionen p� linjen
+		//returnerar Dx,Dy, avst CD och avst AD
+		function project_vector(point_Ax, point_Ay, point_Bx, point_By, point_Cx, point_Cy) {
+			var temp_v = new Array();
+			temp_v.push(0);
+			temp_v.push(0);
+			temp_v.push(-1);
+			temp_v.push(-1);
+			vektor_AB_x = point_Bx - point_Ax;
+			vektor_AB_y = point_By - point_Ay;
+			vektor_AC_x = point_Cx - point_Ax;
+			vektor_AC_y = point_Cy - point_Ay;
+			dotproduct = (vektor_AB_x * vektor_AC_x + vektor_AB_y * vektor_AC_y);
+			//om dotproduct �r st�rre �n noll �r vinkeln spetsig d� �r det inte en intressant punkt
+			//sid 134 i Anton Rorres
+			if (dotproduct > 0) {
+				//normen (l�ngden av AB)
+				normAB = Math.sqrt(Math.pow(vektor_AB_x, 2) + Math.pow(vektor_AB_y, 2));
+				//sid 136 i Anton_Rorres
+				//projicerar AC p� AB. Nya vektorn blir AD
+				vektor_AD_x = dotproduct / Math.pow(normAB, 2) * vektor_AB_x;
+				vektor_AD_y = dotproduct / Math.pow(normAB, 2) * vektor_AB_y;
+				point_Dx = point_Ax + vektor_AD_x;
+				point_Dy = point_Ay + vektor_AD_y;
+				normAD = Math.sqrt(Math.pow(vektor_AD_x, 2) + Math.pow(vektor_AD_y, 2));
+				//kollar s� inte det �r l�ngre fr�n a->d �n vad det �r a->b
+				if (normAD < normAB) {
+					vektor_DC_x = point_Dx - point_Cx;
+					vektor_DC_y = point_Dy - point_Cy;
+					normDC = Math.sqrt(Math.pow(vektor_DC_x, 2) + Math.pow(vektor_DC_y, 2));
+					//returnerar resultatet
+					temp_v[0] = point_Dx;
+					temp_v[1] = point_Dy;
+					temp_v[2] = normDC;
+					temp_v[3] = normAD;
+					//return temp_v;
+				}
+			}
+			return temp_v;
+		}
+
+
+
+
+		function draw_average(offset_x, offset_y, given_graf_bredd, given_graf_hojd, matrisen) {
+
+			//anm: utseende p� matrisen[runda] en array med f�ljande
+			//timestamp, distance, heartrate, speed, latitude, longitude, altitude
+
+			var medel_varden = new Array();
+
+			var canvas = document.getElementById("canvas");
+			if (canvas.getContext) {
+				var ctx = canvas.getContext("2d");
+				ctx.clearRect(0, 0, WIDTH, HEIGHT);
+				ctx.save();
+				ctx.translate(offset_x, offset_y);
+				//ctx.clearRect(0,0,graf_bredd,graf_hojd);
+
+				//hittar max&min p� lat, long och h�jd i f�rsta rundan
+				//sen ber�knas v�rden som beh�vs vid plottning
+				graf_bredd = given_graf_bredd;
+				graf_hojd = given_graf_hojd;
+				updateGlobalGraphValues(matrisen);
+
+
+				//ritar alla laddade rundor i matrisen
+				for (runda = 0; runda < matrisen.length; runda++) {
+					// ritar in rundan
+					ctx.strokeStyle = "rgba(96, 135, 85, 0.5)";
+					ctx.lineWidth = 1;
+					ctx.lineCap = "butt";
+					ctx.lineJoin = "round";
+					ctx.beginPath();
+					ctx.moveTo(transformLongToPixels(matrisen[runda][0][longitude_pos]), transformLatToPixels(matrisen[runda][0][latitude_pos]));
+					for (i = 1; i < matrisen[runda].length; i++) {
+						ctx.lineTo(transformLongToPixels(matrisen[runda][i][longitude_pos]), transformLatToPixels(matrisen[runda][i][latitude_pos]));
+					}
+					ctx.stroke();
+				}
+
+
+				//fyller i medel_varden - arrayen
+				for (f = 0; f < matrisen[matrisen.length - 1].length; f++) {
+					var temp_vektor = new Array();
+					var tidsStampel = new Array();
+					var stracka = new Array();
+					var hjartRytm = new Array();
+					var hastighet = new Array();
+					var medel_lat = new Array();
+					var medel_long = new Array();
+					var hojd = new Array();
+					temp_vektor.push(tidsStampel);
+					temp_vektor.push(stracka);
+					temp_vektor.push(hjartRytm);
+					temp_vektor.push(hastighet);
+					temp_vektor.push(medel_lat);
+					temp_vektor.push(medel_long);
+					temp_vektor.push(hojd);
+					medel_varden.push(temp_vektor)
+				}
+
+				//kollar igenom rundorna
+				if (matrisen.length > 1) {
+					sista_rundan = matrisen.length - 1;
+					//f�r alla punkter i sista rundan
+					for (q = 0; q < matrisen[sista_rundan].length; q++) {
+						aktuell_punkt_x = transformLongToPixels(matrisen[sista_rundan][q][longitude_pos]);
+						aktuell_punkt_y = transformLatToPixels(matrisen[sista_rundan][q][latitude_pos]);
+						//kollar igenom alla rundor utom den sista efter n�rmaste punkt
+						for (z = 0; z < sista_rundan; z++) {
+
+
+
+							if (document.getElementById('avancerad_punktkoll').checked == true) {
+								punkt_a_x = 0;
+								punkt_a_y = 0;
+								punkt_b_x = transformLongToPixels(matrisen[z][0][longitude_pos]);
+								punkt_b_y = transformLatToPixels(matrisen[z][0][latitude_pos]);
+								minsta_distans = 15;
+								sparad_punkt_x = 0;
+								sparad_punkt_y = 0;
+								//kollar igenom alla punkter i den aktuella rundan
+								for (j = 0; j < matrisen[z].length - 1; j++) {
+									//for(j=0;j<20;j++){
+									//punkt_a_x=punkt_b_x;
+									//punkt_a_y=punkt_b_y;
+									punkt_a_x = transformLongToPixels(matrisen[z][j][longitude_pos]);
+									punkt_a_y = transformLatToPixels(matrisen[z][j][latitude_pos]);
+
+									punkt_b_x = transformLongToPixels(matrisen[z][j + 1][longitude_pos]);
+									punkt_b_y = transformLatToPixels(matrisen[z][j + 1][latitude_pos]);
+									projicerad_info = project_vector(punkt_a_x, punkt_a_y, punkt_b_x, punkt_b_y, aktuell_punkt_x, aktuell_punkt_y);
+									if (projicerad_info[2] < minsta_distans && projicerad_info[2] > 0) {
+										minsta_distans = projicerad_info[2];
+										sparad_punkt_x = projicerad_info[0];
+										sparad_punkt_y = projicerad_info[1];
+										//alert("dx "+projicerad_info[0]+"\ndy "+projicerad_info[1]+"\ndist dc "+projicerad_info[2]+"\ndist ad "+projicerad_info[3]+"\n "+"\nax "+punkt_a_x+"\nay "+punkt_a_y+"\nbx "+punkt_b_x+"\nby "+punkt_b_y+"\ncx "+aktuell_punkt_x+"\ncy "+aktuell_punkt_y);
+									}
+								}
+								if (sparad_punkt_x !== 0 && sparad_punkt_y !== 0) {
+									ctx.beginPath();
+									ctx.moveTo(aktuell_punkt_x, aktuell_punkt_y);
+									ctx.lineTo(sparad_punkt_x, sparad_punkt_y);
+									ctx.stroke();
+								}
+
+
+							}
+
+							//kollar efter den punkt som �r n�rmast
+							if (document.getElementById('enkel_punktkoll').checked == true) {
+								//kollar igenom alla punkter i den aktuella rundan
+								minsta_distans = 15;
+								sparad_punkt_x = 0;
+								sparad_punkt_y = 0;
+								sparat_index = 0;
+								for (v = 0; v < matrisen[z].length; v++) {
+									jmf_punkt_x = transformLongToPixels(matrisen[z][v][longitude_pos]);
+									jmf_punkt_y = transformLatToPixels(matrisen[z][v][latitude_pos]);
+									jmf_distans = Math.sqrt(Math.pow((aktuell_punkt_x - jmf_punkt_x), 2) + Math.pow((aktuell_punkt_y - jmf_punkt_y), 2))
+									if (jmf_distans < minsta_distans) {
+										minsta_distans = jmf_distans;
+										sparad_punkt_x = jmf_punkt_x;
+										sparad_punkt_y = jmf_punkt_y;
+										sparat_index = v;
+									}
+								}
+								//plotta ett streck mellan aktuell punkt och n�rmaste punkt
+								// och spara ned informationen!!!
+								if (sparad_punkt_x !== 0 && sparad_punkt_y !== 0) {
+									ctx.beginPath();
+									ctx.moveTo(aktuell_punkt_x, aktuell_punkt_y);
+									ctx.lineTo(sparad_punkt_x, sparad_punkt_y);
+									ctx.stroke();
+									//sparar informationen till medel_varden
+									medel_varden[q][timestamp_pos].push((Date.parse(matrisen[z][sparat_index][timestamp_pos]) - Date.parse(matrisen[z][0][timestamp_pos])) / 1000);
+									medel_varden[q][distance_pos].push(matrisen[z][sparat_index][distance_pos]);
+									medel_varden[q][heartrate_pos].push(matrisen[z][sparat_index][heartrate_pos]);
+									medel_varden[q][speed_pos].push(matrisen[z][sparat_index][speed_pos]);
+									medel_varden[q][altitude_pos].push(matrisen[z][sparat_index][altitude_pos]);
+								}
+								else {
+									medel_varden[q][timestamp_pos].push("x");
+									medel_varden[q][distance_pos].push("x");
+									medel_varden[q][heartrate_pos].push("x");
+									medel_varden[q][speed_pos].push("x");
+									medel_varden[q][altitude_pos].push("x");
+
+								}
+							}
+
+
+						}
+						//sparar distans och h�jd f�r den runda som senare j�mf�rs med
+						medel_varden[q][timestamp_pos].push((Date.parse(matrisen[sista_rundan][q][timestamp_pos]) - Date.parse(matrisen[sista_rundan][0][timestamp_pos])) / 1000);
+						medel_varden[q][distance_pos].push(matrisen[sista_rundan][q][distance_pos]);
+						medel_varden[q][heartrate_pos].push(matrisen[sista_rundan][q][heartrate_pos]);
+						medel_varden[q][speed_pos].push(matrisen[sista_rundan][q][speed_pos]);
+						medel_varden[q][altitude_pos].push(matrisen[sista_rundan][q][altitude_pos]);
+
+
+
+					}
+					//alert("tid\n"+medel_varden[0][timestamp_pos]+"\n"+medel_varden[1][timestamp_pos]+"\n"+medel_varden[2][timestamp_pos]+"\n"+medel_varden[3][timestamp_pos]);
+					//alert("distans\n"+medel_varden[0][distance_pos]+"\n"+medel_varden[1][distance_pos]+"\n"+medel_varden[2][distance_pos]+"\n"+medel_varden[3][distance_pos]);
+					//alert("puls\n"+medel_varden[0][heartrate_pos]+"\n"+medel_varden[1][heartrate_pos]+"\n"+medel_varden[2][heartrate_pos]+"\n"+medel_varden[3][heartrate_pos]);
+					//alert("hastighet\n"+medel_varden[0][speed_pos]+"\n"+medel_varden[1][speed_pos]+"\n"+medel_varden[2][speed_pos]+"\n"+medel_varden[3][speed_pos]);
+					//alert("h�jd\n"+medel_varden[0][altitude_pos]+"\n"+medel_varden[1][altitude_pos]+"\n"+medel_varden[2][altitude_pos]+"\n"+medel_varden[3][altitude_pos]);
+					//console.log("hejpa");
+				}
+
+				ctx.restore();
+			}
+			plotta_graf(offset_x, offset_y, given_graf_bredd, given_graf_hojd / 3, medel_varden);
+		}
+
+
+
+
+
+
+		function plotta_graf(offset_x, offset_y, given_graf_bredd, given_graf_hojd, medel_varden) {
+			//console.log(medel_varden);
+
+			var canvas = document.getElementById("canvas");
+			if (canvas.getContext) {
+				var ctx = canvas.getContext("2d");
+				ctx.clearRect(0, 0, WIDTH, HEIGHT);
+				ctx.save();
+				ctx.translate(offset_x, offset_y);
+				ctx.lineWidth = 1;
+				ctx.lineCap = "butt";
+				ctx.lineJoin = "round";
+
+				var medel_tid = new Array();
+				var medel_distans = new Array();
+				var medel_puls = new Array();
+				var medel_hastighet = new Array();
+				var medel_hojd = new Array();
+
+
+				for (y = 0; y < medel_varden.length; y++) {
+					medel_tid.push(medelvardePaArray(medel_varden[y][timestamp_pos]));
+					medel_distans.push(medelvardePaArray(medel_varden[y][distance_pos]));
+					medel_puls.push(medelvardePaArray(medel_varden[y][heartrate_pos]));
+					medel_hastighet.push(medelvardePaArray(medel_varden[y][speed_pos]));
+					medel_hojd.push(medelvardePaArray(medel_varden[y][altitude_pos]));
+
+				}
+
+				if (document.getElementById('smeta_ut_medel').checked == true) {
+					console.log("medel_hojd " + medel_hojd.length);
+					medel_hojd = smetaUtArray(medel_hojd);
+					console.log("medel_hojd " + medel_hojd.length);
+				}
+
+				max_medel_hojd = maxVardeIArray(medel_hojd);
+				min_medel_hojd = minVardeIArray(medel_hojd);
+				max_medel_dist = maxVardeIArray(medel_distans);
+				min_medel_dist = minVardeIArray(medel_distans);
+				max_medel_hast = maxVardeIArray(medel_hastighet);
+				min_medel_hast = minVardeIArray(medel_hastighet);
+				max_medel_puls = maxVardeIArray(medel_puls);
+				min_medel_puls = minVardeIArray(medel_puls);
+
+
+
+				console.log("max h�jd: " + max_medel_hojd);
+				console.log("min h�jd: " + min_medel_hojd);
+				console.log("max hast: " + max_medel_hast);
+				console.log("min hast: " + min_medel_hast);
+				console.log("max hast: " + max_medel_puls);
+				console.log("min hast: " + min_medel_puls);
+				//console.log(medel_hastighet);
+
+
+
+				//plottar alla h�jder fast lite svagare
+				if (document.getElementById('show_old_laps').checked == true) {
+					ctx.strokeStyle = "rgba(96, 135, 85, 0.25)";
+					//ctx.lineWidth=1;
+					//ctx.lineCap="butt";
+					//ctx.lineJoin="round";
+					for (o = 0; o < medel_varden[0][altitude_pos].length; o++) {
+						ctx.beginPath();
+						//Ifall f�rsta punkten �r "x" s�tts den till noll
+						if (medel_varden[0][altitude_pos][o] == "x") { medel_varden[0][altitude_pos][o] = 0 }
+						//console.log("boss"+o+" "+medel_varden[0][altitude_pos][o]);
+						ctx.moveTo((medel_distans[0] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_varden[0][altitude_pos][o] - min_medel_hojd) / max_medel_hojd * given_graf_hojd);
+						for (t = 0; t < medel_varden.length; t++) {
+							if (medel_varden[t][altitude_pos][o] !== "x") {
+								ctx.lineTo((medel_distans[t] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_varden[t][altitude_pos][o] - min_medel_hojd) / max_medel_hojd * given_graf_hojd);
+							}
+						}
+						ctx.stroke();
+					}
+				}
+
+				//ritar medelh�jden
+				ctx.strokeStyle = "rgba(96, 135, 85, 0.75)";
+				//ctx.lineWidth=1;
+				//ctx.lineCap="butt";
+				//ctx.lineJoin="round";
+				ctx.beginPath();
+				ctx.moveTo((medel_distans[0] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_hojd[0] - min_medel_hojd) / max_medel_hojd * given_graf_hojd);
+				for (x = 1; x < medel_distans.length; x++) {
+					ctx.lineTo((medel_distans[x] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_hojd[x] - min_medel_hojd) / max_medel_hojd * given_graf_hojd);
+				}
+				ctx.stroke();
+				//*************************************
+
+				//plottar alla hastigheter fast lite svagare
+				if (document.getElementById('show_old_laps').checked == true) {
+					ctx.strokeStyle = "rgba(96, 85, 135, 0.25)";
+					for (o = 0; o < medel_varden[0][speed_pos].length; o++) {
+						ctx.beginPath();
+						//Ifall f�rsta punkten �r "x" s�tts den till noll
+						if (medel_varden[0][speed_pos][o] == "x") { medel_varden[0][speed_pos][o] = 0 }
+						//console.log("boss"+o+" "+medel_varden[0][speed_pos][o]);
+						//console.log("hast "+medel_varden[0][speed_pos][o]);
+						//console.log("min_medel_hast "+min_medel_hast);
+						//console.log("max_medel_hast "+max_medel_hast);
+						ctx.moveTo((medel_distans[0] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_varden[0][speed_pos][o] - min_medel_hast) / max_medel_hast * given_graf_hojd);
+						for (t = 0; t < medel_varden.length; t++) {
+							if (medel_varden[t][speed_pos][o] !== "x") {
+								ctx.lineTo((medel_distans[t] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_varden[t][speed_pos][o] - min_medel_hast) / max_medel_hast * given_graf_hojd);
+							}
+						}
+						ctx.stroke();
+					}
+				}
+
+				//ritar medelh�jden
+				ctx.strokeStyle = "rgba(135, 85, 96, 0.75)";
+				ctx.beginPath();
+				ctx.moveTo((medel_distans[0] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_puls[0] - min_medel_puls) / max_medel_puls * given_graf_hojd);
+				for (x = 1; x < medel_distans.length; x++) {
+					ctx.lineTo((medel_distans[x] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_puls[x] - min_medel_puls) / max_medel_puls * given_graf_hojd);
+				}
+				ctx.stroke();
+
+				//*************************************
+				//plottar alla pulser fast lite svagare
+				if (document.getElementById('show_old_laps').checked == true) {
+					ctx.strokeStyle = "rgba(96, 85, 135, 0.75)";
+					for (o = 0; o < medel_varden[0][heartrate_pos].length; o++) {
+						ctx.beginPath();
+						//Ifall f�rsta punkten �r "x" s�tts den till noll
+						if (medel_varden[0][heartrate_pos][o] == "x") { medel_varden[0][heartrate_pos][o] = 0 }
+						ctx.moveTo((medel_distans[0] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_varden[0][heartrate_pos][o] - min_medel_hast) / max_medel_hast * given_graf_hojd);
+						for (t = 0; t < medel_varden.length; t++) {
+							if (medel_varden[t][heartrate_pos][o] !== "x") {
+								ctx.lineTo((medel_distans[t] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_varden[t][heartrate_pos][o] - min_medel_hast) / max_medel_hast * given_graf_hojd);
+							}
+						}
+						ctx.stroke();
+					}
+				}
+
+				//ritar medelpulsen
+				ctx.strokeStyle = "rgba(96, 85, 135, 0.75)";
+				ctx.beginPath();
+				ctx.moveTo((medel_distans[0] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_hastighet[0] - min_medel_hast) / max_medel_hast * given_graf_hojd);
+				for (x = 1; x < medel_distans.length; x++) {
+					ctx.lineTo((medel_distans[x] - min_medel_dist) / max_medel_dist * given_graf_bredd, given_graf_hojd - (medel_hastighet[x] - min_medel_hast) / max_medel_hast * given_graf_hojd);
+				}
+				ctx.stroke();
+
+
+
+
+				ctx.restore();
+			}
+		}
+
+
+		function medelvardePaArray(enArray) {
+			summa = 0;
+			antal = 0;
+			for (h = 0; h < enArray.length; h++) {
+				if (enArray[h] !== "x") {
+					summa = summa + enArray[h];
+					antal = antal + 1;
+				}
+			}
+			medelvarde = summa / antal;
+			return medelvarde
+		}
+
+		function maxVardeIArray(enArray) {
+			maxvarde = enArray[0];
+			for (h = 1; h < enArray.length; h++) {
+				if (enArray[h] > maxvarde) {
+					maxvarde = enArray[h];
+				}
+			}
+			return maxvarde
+		}
+
+		function minVardeIArray(enArray) {
+			minvarde = enArray[0];
+			for (h = 1; h < enArray.length; h++) {
+				if (enArray[h] < minvarde) {
+					minvarde = enArray[h];
+				}
+			}
+			return minvarde
+		}
+
+		function smetaUtArray(aktuellArray) {
+			var tempArray = new Array();
+			tempArray.push(0.75 * aktuellArray[0] + 0.25 * aktuellArray[1])
+
+			for (c = 1; c < aktuellArray.length - 1; c++) {
+				tempArray.push(0.25 * aktuellArray[c - 1] + 0.75 * aktuellArray[c] + 0.25 * aktuellArray[c + 1]);
+			}
+
+			tempArray.push(0.25 * aktuellArray[aktuellArray - 2] + 0.75 * aktuellArray[aktuellArray - 1]);
+
+			console.log(aktuellArray.length + " " + tempArray.length);
+
+			return tempArray
+		}
+
+
+
+	</script>
+
+	<style type="text/css">
+		canvas {
+			border: 1px solid black;
+		}
+	</style>
+</head>
+
+<body id='updateTarget' onLoad="initiera();">
+	<CANVAS id="canvas" width="1500" height="900"></CANVAS>
+	<BR>
+	<FORM name="formularet">
+		<BR>
+
+
+		<BR>
+		<INPUT TYPE=BUTTON OnClick="loadAddresses('data/kungsholmen_2010-07-04.tcx');" VALUE="Kungsholmen8_5.0">
+		<INPUT TYPE=BUTTON OnClick="loadAddresses('data/kungsholmen_2010-07-10.tcx');" VALUE="Kungsholmen9_5.0">
+		<INPUT TYPE=BUTTON OnClick="loadAddresses('data/kungsholmen_2010-08-09.tcx');" VALUE="Kungsholmen11_5.0">
+		<BR>
+
+
+		<INPUT TYPE=BUTTON OnClick="draw(100,50,1300,800,super_array);" VALUE="Rita">
+		<INPUT TYPE=BUTTON OnClick="draw_average(100,50,1300,800,super_array);" VALUE="Rita medel">
+		<BR>
+		<input type="checkbox" name="team" id="hight">h�jdstreck<br>
+		<input type="checkbox" name="team" id="show_old_laps">visa gamla rundor<br>
+		<input type="checkbox" name="team" id="smeta_ut_medel">smeta ut medel<br>
+		<input type="radio" id="avancerad_punktkoll" name="mutvilk" />avancerad
+		<input type="radio" id="enkel_punktkoll" name="mutvilk" checked="true" />enkel
+		<BR>
+
+
+	</FORM>
+
+
+
+
+</body>
+
+</html>

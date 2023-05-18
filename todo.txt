@@ -1,0 +1,34 @@
+
+
+function loadAddresses(filnamnet){
+function initiera(){
+function writeList(){
+	OK ändra så att tid inte sprarar tidstämpel utan tidsdiff
+	OK ändra interpoleringen (ev lägga anrop till interpolering i annan funktion?)
+
+
+
+function draw_average(offset_x,offset_y,given_graf_bredd,given_graf_hojd,matrisen){
+	testa hårdare
+
+
+function plotta_graf(offset_x,offset_y,given_graf_bredd,given_graf_hojd,medel_varden){
+
+function smetaUtArray(aktuellArray){
+
+
+
+
+idé
+medelgrafen visar även variansen (variance) eller standadavvikelse
+
+
+
+intressant om hur bred canvas är
+http://nuttim/waves/indexhtml#1
+
+
+
+indata i tcx som har spikar ex: temporär hög hastighet eller låg
+
+möjlighet att generera utdata (ex medelvärden för många rundor?)
