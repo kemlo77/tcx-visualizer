@@ -1,3 +1,13 @@
 /old_data
 /old_implementations
 /documentation
+.vscode/
+built/
+node_modules/
+dist/
+coverage/
+.nyc_output/
+.scannerwork/
+.scannerwork/**/*
+/cypress/videos
+/cypress/screenshots
