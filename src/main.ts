@@ -1,3 +1,4 @@
+import { Viewpoint } from './Viewpoint';
 import { Track } from './Track';
 import './assets/kungsholmen_2010-04-30.tcx';
 import './assets/kungsholmen_2010-05-03.tcx';
@@ -20,23 +21,18 @@ document.getElementById('loadMany').addEventListener('click', () => loadManyRout
 document.getElementById('draw').addEventListener('click', () => draw(100, 50, 1300, 800, addedTracks));
 document.getElementById('draw3d').addEventListener('click', () => draw3d(100, 50, 1300, 800, addedTracks));
 
-document.getElementById('rotAlphaPlus').addEventListener('click', () => rotmapalpha(1));
-document.getElementById('rotAlphaMinus').addEventListener('click', () => rotmapalpha(-1));
-document.getElementById('rotBetaPlus').addEventListener('click', () => rotmapbeta(1));
-document.getElementById('rotBetaMinus').addEventListener('click', () => rotmapbeta(-1));
+document.getElementById('increaseElevation').addEventListener('click', () => increaseElevation());
+document.getElementById('decreaseElevation').addEventListener('click', () => decreaseElevation());
+document.getElementById('anticlockwise').addEventListener('click', () => rotateAnticlockwise());
+document.getElementById('clockwise').addEventListener('click', () => rotateClockwise());
 
 
 //inspiration fr�n http://billmill.org/static/canvastutorial/
 
 //global array d�r laddade rundor l�ggs
 const addedTracks: Track[] = [];
-let alpha: number = Math.PI / 4;//Pi/4
-let beta: number = 0;//PI/6
-let rot_a: number = 1;
-let rot_b: number = 0;
-let rot_c: number = 0;
-let rot_d: number = -1;
-let rot_e: number = 0;
+const viewpoint: Viewpoint = new Viewpoint();
+
 let WIDTH: number;
 let HEIGHT: number;
 const canvasMinX: number = 0;
@@ -44,24 +40,17 @@ const canvasMaxX: number = 0;
 
 
 function loadTrack(filnamnet: string): void {
-    //xmlDoc = document.implementation.createDocument("", "", null);
-    //xmlDoc.onload = writeList;
-    //xmlDoc.open(filnamnet);
     fetch(filnamnet)
         .then(response => response.text())
         .then(data => {
             const parser: DOMParser = new DOMParser();
             const xmlDoc: Document = parser.parseFromString(data, 'application/xml');
-            //xmlDoc.onload = writeList;
             const track: Track = new Track(xmlDoc);
             addedTracks.push(track);
-            // Hantera XML-data här
-            console.log(xmlDoc);
         })
         .catch(error => {
             console.log(error);
         });
-
 }
 
 function initiera(): void {
@@ -71,54 +60,26 @@ function initiera(): void {
 }
 
 
-function rotmapalpha(riktn: number): void {
-    if (riktn < 0) {
-        const temp: number = alpha + Math.PI / 128 * riktn;
-        if (temp >= 0) {
-            alpha = temp;
-        }
-        else {
-            alpha = 0;
-        }
-        rot_a = +Math.cos(beta);
-        rot_b = -Math.sin(beta);
-        rot_c = -Math.cos(alpha) * Math.sin(beta);
-        rot_d = -Math.cos(alpha) * Math.cos(beta);
-        rot_e = -Math.sin(alpha);
-        draw3d(100, 50, 1300, 800, addedTracks);
-    }
-    if (riktn > 0) {
-        const temp: number = alpha + Math.PI / 128 * riktn;
-        if (temp <= Math.PI / 2) { alpha = temp; }
-        else { alpha = Math.PI / 2; }
-        rot_a = +Math.cos(beta);
-        rot_b = -Math.sin(beta);
-        rot_c = -Math.cos(alpha) * Math.sin(beta);
-        rot_d = -Math.cos(alpha) * Math.cos(beta);
-        rot_e = -Math.sin(alpha);
-        draw3d(100, 50, 1300, 800, addedTracks);
-    }
-
-}
-
-function rotmapbeta(riktn: number): void {
-    beta = beta + Math.PI / 128 * riktn;
-    rot_a = +Math.cos(beta);
-    rot_b = -Math.sin(beta);
-    rot_c = -Math.cos(alpha) * Math.sin(beta);
-    rot_d = -Math.cos(alpha) * Math.cos(beta);
-    rot_e = -Math.sin(alpha);
+function increaseElevation(): void {
+    viewpoint.changeElevation(5);
     draw3d(100, 50, 1300, 800, addedTracks);
 }
 
-function roteraKoords(x1: number, y1: number, z1: number): number[] {
-    const tempArray: number[] = [];
-    const x2: number = x1 * rot_a + y1 * rot_b;
-    tempArray.push(x2);
-    const y2: number = x1 * rot_c + y1 * rot_d + z1 * rot_e;
-    tempArray.push(y2);
-    return tempArray;
+function decreaseElevation(): void {
+    viewpoint.changeElevation(-5);
+    draw3d(100, 50, 1300, 800, addedTracks);
 }
+
+function rotateClockwise(): void {
+    viewpoint.changeAzimuth(-5);
+    draw3d(100, 50, 1300, 800, addedTracks);
+}
+
+function rotateAnticlockwise(): void {
+    viewpoint.changeAzimuth(+5);
+    draw3d(100, 50, 1300, 800, addedTracks);
+}
+
 
 
 function draw3d(
@@ -127,6 +88,10 @@ function draw3d(
     graf_bredd: number,
     graf_hojd: number,
     tracks: Track[]): void {
+
+    if (tracks.length == 0) {
+        return;
+    }
 
 
 
@@ -207,12 +172,12 @@ function draw3d(
             ctx.lineCap = 'butt';
             ctx.lineJoin = 'round';
             ctx.beginPath();
-            let roteradPunkt = roteraKoords(xkoord[0], ykoord[0], 0);
+            let roteradPunkt = viewpoint.roteraKoords(xkoord[0], ykoord[0], 0);
             //ctx.moveTo(graf_bredd/2+xkoord[0]*rot_a+ykoord[0]*rot_b,graf_hojd/2+xkoord[0]*rot_c+ykoord[0]*rot_d);
             ctx.moveTo(graf_bredd / 2 + roteradPunkt[0], graf_hojd / 2 + roteradPunkt[1]);
             for (let i: number = 1; i < tracks[runda].track.length; i++) {
                 //ctx.lineTo(graf_bredd/2+xkoord[i]*rot_a+ykoord[i]*rot_b,graf_hojd/2+xkoord[i]*rot_c+ykoord[i]*rot_d);
-                roteradPunkt = roteraKoords(xkoord[i], ykoord[i], 0);
+                roteradPunkt = viewpoint.roteraKoords(xkoord[i], ykoord[i], 0);
                 ctx.lineTo(graf_bredd / 2 + roteradPunkt[0], graf_hojd / 2 + roteradPunkt[1]);
             }
             ctx.stroke();
@@ -223,11 +188,11 @@ function draw3d(
             for (let g: number = 0; g < tracks[runda].track.length; g++) {
                 //if(vinkelratv[g][0]!=="x"){
                 ctx.beginPath();
-                roteradPunkt = roteraKoords(xkoord[g], ykoord[g], 0);
+                roteradPunkt = viewpoint.roteraKoords(xkoord[g], ykoord[g], 0);
                 //ctx.moveTo(graf_bredd/2+xkoord[g]*rot_a+ykoord[g]*rot_b,graf_hojd/2+xkoord[g]*rot_c+ykoord[g]*rot_d);
                 ctx.moveTo(graf_bredd / 2 + roteradPunkt[0], graf_hojd / 2 + roteradPunkt[1]);
                 //ctx.lineTo(graf_bredd/2+xkoord[g]*rot_a+ykoord[g]*rot_b,graf_hojd/2+xkoord[g]*rot_c+ykoord[g]*rot_d+(matrisen[runda][g][6]-minst_hojd)/hojd_faktor*rot_e);
-                roteradPunkt = roteraKoords(xkoord[g], ykoord[g], (tracks[runda].track[g][6] - minst_hojd) / hojd_faktor);
+                roteradPunkt = viewpoint.roteraKoords(xkoord[g], ykoord[g], (tracks[runda].track[g][6] - minst_hojd) / hojd_faktor);
                 ctx.lineTo(graf_bredd / 2 + roteradPunkt[0], graf_hojd / 2 + roteradPunkt[1]);
                 ctx.stroke();
                 //}
@@ -236,14 +201,14 @@ function draw3d(
             //rita start plupp
             ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
             ctx.beginPath();
-            roteradPunkt = roteraKoords(xkoord[0], ykoord[0], 0);
+            roteradPunkt = viewpoint.roteraKoords(xkoord[0], ykoord[0], 0);
             ctx.arc(graf_bredd / 2 + roteradPunkt[0], graf_hojd / 2 + roteradPunkt[1], 3, 0, Math.PI * 2, true);
             ctx.closePath();
             ctx.fill();
             //ritar slut-plupp
             ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
             ctx.beginPath();
-            roteradPunkt = roteraKoords(xkoord[xkoord.length - 1], ykoord[ykoord.length - 1], 0);
+            roteradPunkt = viewpoint.roteraKoords(xkoord[xkoord.length - 1], ykoord[ykoord.length - 1], 0);
             ctx.arc(graf_bredd / 2 + roteradPunkt[0], graf_hojd / 2 + roteradPunkt[1], 3, 0, Math.PI * 2, true);
             ctx.closePath();
             ctx.fill();
@@ -254,22 +219,22 @@ function draw3d(
         ctx.beginPath();
         //pilen
         ctx.moveTo(graf_bredd / 2, graf_hojd / 2);
-        let roteradPilPunkt = roteraKoords(0, 40, 0);
+        let roteradPilPunkt = viewpoint.roteraKoords(0, 40, 0);
         ctx.lineTo(graf_bredd / 2 + roteradPilPunkt[0], graf_hojd / 2 + roteradPilPunkt[1]);
-        roteradPilPunkt = roteraKoords(-4, 32, 0);
+        roteradPilPunkt = viewpoint.roteraKoords(-4, 32, 0);
         ctx.moveTo(graf_bredd / 2 + roteradPilPunkt[0], graf_hojd / 2 + roteradPilPunkt[1]);
-        roteradPilPunkt = roteraKoords(0, 40, 0);
+        roteradPilPunkt = viewpoint.roteraKoords(0, 40, 0);
         ctx.lineTo(graf_bredd / 2 + roteradPilPunkt[0], graf_hojd / 2 + roteradPilPunkt[1]);
-        roteradPilPunkt = roteraKoords(4, 32, 0);
+        roteradPilPunkt = viewpoint.roteraKoords(4, 32, 0);
         ctx.lineTo(graf_bredd / 2 + roteradPilPunkt[0], graf_hojd / 2 + roteradPilPunkt[1]);
         //tecknet "N"
-        roteradPilPunkt = roteraKoords(3, 0, 0);
+        roteradPilPunkt = viewpoint.roteraKoords(3, 0, 0);
         ctx.moveTo(graf_bredd / 2 + roteradPilPunkt[0], graf_hojd / 2 + roteradPilPunkt[1]);
-        roteradPilPunkt = roteraKoords(3, 6, 0);
+        roteradPilPunkt = viewpoint.roteraKoords(3, 6, 0);
         ctx.lineTo(graf_bredd / 2 + roteradPilPunkt[0], graf_hojd / 2 + roteradPilPunkt[1]);
-        roteradPilPunkt = roteraKoords(6, 0, 0);
+        roteradPilPunkt = viewpoint.roteraKoords(6, 0, 0);
         ctx.lineTo(graf_bredd / 2 + roteradPilPunkt[0], graf_hojd / 2 + roteradPilPunkt[1]);
-        roteradPilPunkt = roteraKoords(6, 6, 0);
+        roteradPilPunkt = viewpoint.roteraKoords(6, 6, 0);
         ctx.lineTo(graf_bredd / 2 + roteradPilPunkt[0], graf_hojd / 2 + roteradPilPunkt[1]);
         ctx.stroke();
 
@@ -287,6 +252,10 @@ function draw(
     graf_bredd: number,
     graf_hojd: number,
     tracks: Track[]): void {
+
+    if (tracks.length == 0) {
+        return;
+    }
 
     const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement;
     if (canvas.getContext) {
